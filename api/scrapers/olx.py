@@ -6,6 +6,7 @@ class OlxScraper:
     def scrape(self, location_name, location_id):
         url = f"https://www.olx.in/{location_name}_g{location_id}/cars_c84"
         command = ['curl', '-s', url]
+        
         try:
             result = subprocess.run(command, capture_output=True, text=True, check=True)
             result_data = result.stdout
@@ -22,7 +23,8 @@ class OlxScraper:
 
             for item in car_items:
                 name = item.find('div', attrs={'data-aut-id': 'itemTitle'})
-                car_names.append(name.text.strip() if name else "N/A")
+                full_car_name = name.text.strip() if name else "N/A"
+                car_names.append(full_car_name)
 
                 subtitle = item.find('div', attrs={'data-aut-id': 'itemSubTitle'})
                 if subtitle:
@@ -51,9 +53,11 @@ class OlxScraper:
                 else:
                     image_urls.append("N/A")
 
+            split_car_names = [car_name.split(" ", 1) for car_name in car_names]
             car_data = pd.DataFrame({
                 'Manufacture Year': manufacture_year,
-                'Car Name': car_names,
+                'Car Name': [name[0] for name in split_car_names],  # First part
+                'Model Name': [name[1].strip() if len(name) > 1 else "N/A" for name in split_car_names],  # Second part
                 'Mileage': kilometers,
                 'Price': prices,
                 'URL': urls,
@@ -63,19 +67,6 @@ class OlxScraper:
                 'source': 'olx'
             })
 
-            # print("Initial Car Data:\n", car_data)
-
-            # Scrape additional data from the collected URLs
-            # additional_data = self.scrape_additional_data(urls)
-
-            # Check if additional data has been collected
-            # print("Additional Data:\n", additional_data)
-
-            # Merge additional data with car data
-            # if not additional_data.empty:
-            #     car_data = car_data.merge(additional_data, on='URL', how='left')
-
-            # print("Merged Car Data:\n", car_data)
             return car_data
 
         except subprocess.CalledProcessError as e:
@@ -99,8 +90,8 @@ class OlxScraper:
                 result = subprocess.run(command, capture_output=True, text=True, check=True)
                 result_data = result.stdout
                 soup = BeautifulSoup(result_data, 'html.parser')
-                # Debugging output to check the response from each URL
                 print(f"Scraping additional data from: {url}")
+                
                 owner = soup.find('div', class_="_3VRXh")
                 fuel_type = soup.find('h2', class_='_3rMkw')
 
